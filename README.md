@@ -17,7 +17,10 @@ The app keeps `GEMINI_API_KEY` on the server. Browser requests send multipart fo
 
 ```bash
 GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_COMMON_PROMPT=optional_text_sent_before_every_edit_prompt
 ```
+
+`GEMINI_COMMON_PROMPT` is optional. When set, the API route sends it to Gemini before the browser-submitted edit prompt on every request. Use it for shared editing rules, preferred tone, fixed output constraints, or other common instructions that should not be typed into the UI each time.
 
 ## Billing
 
@@ -42,6 +45,11 @@ Send `multipart/form-data` with:
 - `size`: `1K`, `2K`, or `4K`
 
 The API route calls `@google/genai` server-side and returns a JPEG data URL.
+
+If `GEMINI_COMMON_PROMPT` is configured, the route sends both text inputs to Gemini in this order:
+
+- `GEMINI_COMMON_PROMPT`
+- `prompt`
 
 # Examples
 

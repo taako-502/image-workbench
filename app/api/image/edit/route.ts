@@ -8,6 +8,7 @@ const OUTPUT_MIME_TYPE = "image/jpeg";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const OUTPUT_SIZES = new Set(["1K", "2K", "4K"]);
+const COMMON_PROMPT_ENV = "GEMINI_COMMON_PROMPT";
 
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -15,6 +16,73 @@ function jsonError(message: string, status = 400) {
 
 function isFile(value: FormDataEntryValue | null): value is File {
   return typeof File !== "undefined" && value instanceof File;
+}
+
+type GeminiApiError = {
+  message?: string;
+  status?: number;
+  statusCode?: number;
+  error?: {
+    error?: {
+      message?: string;
+      code?: string;
+    };
+    message?: string;
+    code?: string;
+  };
+};
+
+function getGeminiError(error: unknown) {
+  const apiError = error as GeminiApiError;
+  const status = apiError.status ?? apiError.statusCode;
+  const message =
+    apiError.error?.error?.message ??
+    apiError.error?.message ??
+    apiError.message ??
+    "Gemini image edit failed.";
+
+  return { status, message };
+}
+
+function getClientErrorMessage(status: number | undefined, message: string) {
+  if (status === 401 || status === 403) {
+    return "Gemini API authentication failed. Check GEMINI_API_KEY and project permissions.";
+  }
+
+  if (status === 429) {
+    return "Gemini API quota is exhausted for this key or project. Check quota/billing or try again later.";
+  }
+
+  if (status && status >= 400 && status < 500) {
+    return message;
+  }
+
+  return "Gemini image edit failed. Check the server logs.";
+}
+
+function getTextInputs(prompt: string) {
+  const commonPrompt = process.env[COMMON_PROMPT_ENV]?.trim();
+  const userPrompt = prompt.trim();
+
+  if (!commonPrompt) {
+    return [
+      {
+        type: "text" as const,
+        text: userPrompt,
+      },
+    ];
+  }
+
+  return [
+    {
+      type: "text" as const,
+      text: commonPrompt,
+    },
+    {
+      type: "text" as const,
+      text: userPrompt,
+    },
+  ];
 }
 
 export async function POST(request: Request) {
@@ -66,10 +134,7 @@ export async function POST(request: Request) {
     const interaction = await ai.interactions.create({
       model: MODEL,
       input: [
-        {
-          type: "text",
-          text: prompt.trim(),
-        },
+        ...getTextInputs(prompt),
         {
           type: "image",
           mime_type: image.type,
@@ -95,7 +160,12 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error("Gemini image edit failed", error);
-    return jsonError("Gemini image edit failed. Check the server logs.", 502);
+    const { status, message } = getGeminiError(error);
+    console.error("Gemini image edit failed", { status, message });
+
+    return jsonError(
+      getClientErrorMessage(status, message),
+      status && status >= 400 && status < 500 ? status : 502,
+    );
   }
 }
