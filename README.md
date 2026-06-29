@@ -1,15 +1,15 @@
 ---
 type: README
 title: image-workbench
-description: Minimal Next.js UI for Gemini image-to-image editing.
+description: Gemini による画像編集向けの最小構成 Next.js UI。
 timestamp: 2026-06-29
 ---
 
 # Overview
 
-`image-workbench` is a minimal Next.js App Router UI for image-to-image editing with Gemini 3 Pro Image.
+`image-workbench` は、Gemini 3 Pro Image を使った画像編集向けの最小構成 Next.js App Router UI です。
 
-The app keeps `GEMINI_API_KEY` on the server. Browser requests send multipart form data to `POST /api/image/edit`, and the route calls `@google/genai`.
+このアプリは `GEMINI_API_KEY` をサーバー側に保持します。ブラウザからのリクエストは `POST /api/image/edit` に multipart form data を送信し、そのルートが `@google/genai` を呼び出します。
 
 # Schema
 
@@ -20,33 +20,33 @@ GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_COMMON_PROMPT=optional_text_sent_before_every_edit_prompt
 ```
 
-`GEMINI_COMMON_PROMPT` is optional. When set, the API route sends it to Gemini before the browser-submitted edit prompt on every request. Use it for shared editing rules, preferred tone, fixed output constraints, or other common instructions that should not be typed into the UI each time.
+`GEMINI_COMMON_PROMPT` は任意です。設定すると、API ルートは毎回、ブラウザから送信された編集プロンプトより前にこの値を Gemini へ送信します。共通の編集ルール、望ましいトーン、固定の出力制約、UI に毎回入力したくない共通指示に使います。
 
 ## Billing
 
-This app uses the Gemini Developer API, so usage is billed through Google AI Studio, not a ChatGPT subscription.
+このアプリは Gemini Developer API を使用するため、利用料金は ChatGPT のサブスクリプションではなく Google AI Studio 経由で請求されます。
 
-For production usage or higher rate limits:
+本番利用やより高いレート制限が必要な場合:
 
-- Review the Gemini Developer API pricing page: https://ai.google.dev/gemini-api/docs/pricing?hl=ja
-- Upgrade the API key's Google AI Studio project to a paid account from the pricing page.
-- Keep `GEMINI_API_KEY` configured in `.env.local` or the deployment environment after upgrading.
+- Gemini Developer API の料金ページを確認します: https://ai.google.dev/gemini-api/docs/pricing?hl=ja
+- 料金ページから、API キーに対応する Google AI Studio プロジェクトを有料アカウントへアップグレードします。
+- アップグレード後も、`.env.local` またはデプロイ環境に `GEMINI_API_KEY` を設定した状態にします。
 
-The pricing page describes the free, paid, and enterprise tiers. The paid tier is intended for production apps that need higher rate limits, access to advanced features, and content that is not used for product improvement.
+料金ページには、無料、有料、エンタープライズの各ティアが説明されています。有料ティアは、より高いレート制限、高度な機能へのアクセス、プロダクト改善に利用されないコンテンツを必要とする本番アプリ向けです。
 
 ## API
 
 `POST /api/image/edit`
 
-Send `multipart/form-data` with:
+`multipart/form-data` で次の項目を送信します。
 
-- `image`: PNG, JPEG, or WEBP file, max 10MB
-- `prompt`: edit instruction
-- `size`: `1K`, `2K`, or `4K`
+- `image`: PNG、JPEG、または WEBP ファイル。最大 10MB
+- `prompt`: 編集指示
+- `size`: `1K`、`2K`、または `4K`
 
-The API route calls `@google/genai` server-side and returns a JPEG data URL.
+API ルートはサーバー側で `@google/genai` を呼び出し、JPEG data URL を返します。
 
-If `GEMINI_COMMON_PROMPT` is configured, the route sends both text inputs to Gemini in this order:
+`GEMINI_COMMON_PROMPT` が設定されている場合、ルートは次の順序で 2 つのテキスト入力を Gemini へ送信します。
 
 - `GEMINI_COMMON_PROMPT`
 - `prompt`
@@ -61,8 +61,8 @@ cp .env.example .env.local
 yarn dev
 ```
 
-Open http://localhost:3000.
+http://localhost:3000 を開きます。
 
 # Citations
 
-- Gemini Developer API pricing, referenced on 2026-06-29: https://ai.google.dev/gemini-api/docs/pricing?hl=ja
+- Gemini Developer API 料金ページ、2026-06-29 参照: https://ai.google.dev/gemini-api/docs/pricing?hl=ja
