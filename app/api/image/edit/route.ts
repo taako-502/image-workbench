@@ -20,6 +20,7 @@ function isFile(value: FormDataEntryValue | null): value is File {
 }
 
 type GeminiApiError = {
+  name?: string;
   message?: string;
   status?: number;
   statusCode?: number;
@@ -33,13 +34,51 @@ type GeminiApiError = {
   };
 };
 
+type ParsedGeminiError = {
+  status?: number;
+  message?: string;
+};
+
+function parseGeminiJsonError(message: string): ParsedGeminiError {
+  try {
+    const parsed = JSON.parse(message) as {
+      error?: {
+        code?: number;
+        message?: string;
+      };
+    };
+
+    return {
+      status: parsed.error?.code,
+      message: parsed.error?.message,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function getErrorDetails(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      cause: error.cause,
+    };
+  }
+
+  return error;
+}
+
 function getGeminiError(error: unknown) {
   const apiError = error as GeminiApiError;
-  const status = apiError.status ?? apiError.statusCode;
+  const rawMessage = apiError.message ?? "Gemini image edit failed.";
+  const parsedError = parseGeminiJsonError(rawMessage);
+  const status = apiError.status ?? apiError.statusCode ?? parsedError.status;
   const message =
     apiError.error?.error?.message ??
     apiError.error?.message ??
-    apiError.message ??
+    parsedError.message ??
+    rawMessage ??
     "Gemini image edit failed.";
 
   return { status, message };
@@ -56,6 +95,10 @@ function getClientErrorMessage(status: number | undefined, message: string) {
 
   if (status && status >= 400 && status < 500) {
     return message;
+  }
+
+  if (message !== "Gemini image edit failed.") {
+    return `Gemini image edit failed: ${message}`;
   }
 
   return "Gemini image edit failed. Check the server logs.";
@@ -171,6 +214,7 @@ export async function POST(request: Request) {
       model: getModel(),
       status,
       message,
+      details: getErrorDetails(error),
     });
 
     return jsonError(
