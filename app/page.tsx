@@ -102,11 +102,6 @@ export default function Home() {
       return;
     }
 
-    if (!prompt.trim()) {
-      setError("Describe the edit you want Gemini to make.");
-      return;
-    }
-
     setIsLoading(true);
     setError("");
     setOutputImage("");
@@ -146,8 +141,8 @@ export default function Home() {
           <p className="eyebrow">Nano Banana Pro</p>
           <h1>Image Workbench</h1>
           <p>
-            Upload a source image, describe the edit, and generate a polished
-            image without exposing your Gemini API key to the browser.
+            Upload a source image, add an optional instruction, and generate a
+            polished image without exposing your Gemini API key to the browser.
           </p>
         </div>
 
@@ -166,14 +161,14 @@ export default function Home() {
           </div>
 
           <div className="field">
-            <label htmlFor="prompt">Edit prompt</label>
+            <label htmlFor="prompt">Additional prompt</label>
             <textarea
               id="prompt"
               name="prompt"
               rows={7}
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Example: Replace the background with a clean studio setting and keep the subject unchanged."
+              placeholder="Optional when GEMINI_COMMON_PROMPT is set. Example: Use a blue background."
             />
           </div>
 

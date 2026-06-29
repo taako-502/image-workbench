@@ -17,13 +17,13 @@ timestamp: 2026-06-29
 
 ```bash
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_IMAGE_MODEL=gemini-3-pro-image
+GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
 GEMINI_COMMON_PROMPT=optional_text_sent_before_every_edit_prompt
 ```
 
-`GEMINI_IMAGE_MODEL` は任意です。未設定の場合は Nano Banana Pro のモデル ID である `gemini-3-pro-image` を使います。Quota 回避や検証目的で別モデルを使う場合だけ、`.env.local` またはデプロイ環境で上書きします。
+`GEMINI_IMAGE_MODEL` は任意です。未設定の場合は Nano Banana Pro のモデル ID である `gemini-3-pro-image-preview` を使います。Quota 回避や検証目的で別モデルを使う場合だけ、`.env.local` またはデプロイ環境で上書きします。
 
-`GEMINI_COMMON_PROMPT` は任意です。設定すると、API ルートは毎回、ブラウザから送信された編集プロンプトより前にこの値を Gemini へ送信します。共通の編集ルール、望ましいトーン、固定の出力制約、UI に毎回入力したくない共通指示に使います。
+`GEMINI_COMMON_PROMPT` は任意です。設定すると、API ルートは毎回、ブラウザから送信された編集プロンプトより前にこの値を Gemini へ送信します。共通の編集ルール、望ましいトーン、固定の出力制約、UI に毎回入力したくない共通指示に使います。この値が設定されている場合、画面の追加プロンプトは空欄のまま送信できます。
 
 ## Billing
 
@@ -44,7 +44,7 @@ GEMINI_COMMON_PROMPT=optional_text_sent_before_every_edit_prompt
 `multipart/form-data` で次の項目を送信します。
 
 - `image`: PNG、JPEG、または WEBP ファイル。最大 10MB
-- `prompt`: 編集指示
+- `prompt`: 追加の編集指示。`GEMINI_COMMON_PROMPT` が未設定の場合は必須
 - `size`: `1K`、`2K`、または `4K`
 
 API ルートはサーバー側で `@google/genai` を呼び出し、JPEG data URL を返します。
@@ -52,7 +52,7 @@ API ルートはサーバー側で `@google/genai` を呼び出し、JPEG data U
 `GEMINI_COMMON_PROMPT` が設定されている場合、ルートは次の順序で 2 つのテキスト入力を Gemini へ送信します。
 
 - `GEMINI_COMMON_PROMPT`
-- `prompt`
+- `prompt`。空欄の場合は送信しません。
 
 # Examples
 

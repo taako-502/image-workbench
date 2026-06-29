@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const DEFAULT_MODEL = "gemini-3-pro-image";
+const DEFAULT_MODEL = "gemini-3-pro-image-preview";
 const OUTPUT_MIME_TYPE = "image/jpeg";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -104,29 +104,30 @@ function getClientErrorMessage(status: number | undefined, message: string) {
   return "Gemini image edit failed. Check the server logs.";
 }
 
+function getCommonPrompt() {
+  return process.env[COMMON_PROMPT_ENV]?.trim() || "";
+}
+
 function getTextInputs(prompt: string) {
   const commonPrompt = process.env[COMMON_PROMPT_ENV]?.trim();
   const userPrompt = prompt.trim();
+  const inputs = [];
 
-  if (!commonPrompt) {
-    return [
-      {
-        type: "text" as const,
-        text: userPrompt,
-      },
-    ];
-  }
-
-  return [
-    {
+  if (commonPrompt) {
+    inputs.push({
       type: "text" as const,
       text: commonPrompt,
-    },
-    {
+    });
+  }
+
+  if (userPrompt) {
+    inputs.push({
       type: "text" as const,
       text: userPrompt,
-    },
-  ];
+    });
+  }
+
+  return inputs;
 }
 
 function getModel() {
@@ -155,8 +156,9 @@ export async function POST(request: Request) {
     return jsonError("Image is required.");
   }
 
-  if (typeof prompt !== "string" || !prompt.trim()) {
-    return jsonError("Prompt is required.");
+  const hasCommonPrompt = Boolean(getCommonPrompt());
+  if (typeof prompt !== "string" || (!prompt.trim() && !hasCommonPrompt)) {
+    return jsonError(`Prompt is required unless ${COMMON_PROMPT_ENV} is set.`);
   }
 
   if (typeof size !== "string" || !OUTPUT_SIZES.has(size)) {
