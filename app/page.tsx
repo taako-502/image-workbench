@@ -14,6 +14,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const OUTPUT_SIZES = ["1K", "2K", "4K"] as const;
 
 type OutputSize = (typeof OUTPUT_SIZES)[number];
+type WorkMode = "generate" | "edit";
 
 type EditResponse = {
   image?: {
@@ -43,6 +44,7 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [prompt, setPrompt] = useState("");
   const [size, setSize] = useState<OutputSize>("1K");
+  const [mode, setMode] = useState<WorkMode>("generate");
   const [sourcePreview, setSourcePreview] = useState("");
   const [outputImage, setOutputImage] = useState("");
   const [error, setError] = useState("");
@@ -92,13 +94,18 @@ export default function Home() {
     event.preventDefault();
 
     const fileError = validateFile(file);
-    if (fileError) {
+    if (mode === "edit" && fileError) {
       setError(fileError);
       return;
     }
 
-    if (!file) {
+    if (mode === "edit" && !file) {
       setError("Choose a PNG, JPEG, or WEBP image.");
+      return;
+    }
+
+    if (mode === "generate" && !prompt.trim()) {
+      setError("Describe the image you want Gemini to create.");
       return;
     }
 
@@ -106,16 +113,29 @@ export default function Home() {
     setError("");
     setOutputImage("");
 
-    const formData = new FormData();
-    formData.append("image", file);
-    formData.append("prompt", prompt.trim());
-    formData.append("size", size);
-
     try {
-      const response = await fetch("/api/image/edit", {
-        method: "POST",
-        body: formData,
-      });
+      const response =
+        mode === "edit"
+          ? await (() => {
+              const formData = new FormData();
+              formData.append("image", file as File);
+              formData.append("prompt", prompt.trim());
+              formData.append("size", size);
+
+              return fetch("/api/image/edit", {
+                method: "POST",
+                body: formData,
+              });
+            })()
+          : await fetch("/api/image/generate", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                prompt: prompt.trim(),
+              }),
+            });
       const payload = (await response.json()) as EditResponse;
 
       if (!response.ok || !payload.image?.dataUrl) {
@@ -141,13 +161,38 @@ export default function Home() {
           <p className="eyebrow">Nano Banana Pro</p>
           <h1>Image Workbench</h1>
           <p>
-            Upload a source image, add an optional instruction, and generate a
-            polished image without exposing your Gemini API key to the browser.
+            Create an image from text, or edit a source image when your Gemini
+            project has image input quota.
           </p>
         </div>
 
         <form className="control-panel" onSubmit={handleSubmit}>
-          <div className="field">
+          <div className="mode-tabs" aria-label="Mode">
+            <button
+              type="button"
+              className={mode === "generate" ? "mode-tab active" : "mode-tab"}
+              onClick={() => {
+                setMode("generate");
+                setError("");
+                setOutputImage("");
+              }}
+            >
+              Text to image
+            </button>
+            <button
+              type="button"
+              className={mode === "edit" ? "mode-tab active" : "mode-tab"}
+              onClick={() => {
+                setMode("edit");
+                setError("");
+                setOutputImage("");
+              }}
+            >
+              Edit image
+            </button>
+          </div>
+
+          <div className={mode === "edit" ? "field" : "field hidden-field"}>
             <label htmlFor="source-image">Source image</label>
             <input
               id="source-image"
@@ -161,14 +206,20 @@ export default function Home() {
           </div>
 
           <div className="field">
-            <label htmlFor="prompt">Additional prompt</label>
+            <label htmlFor="prompt">
+              {mode === "generate" ? "Image prompt" : "Additional prompt"}
+            </label>
             <textarea
               id="prompt"
               name="prompt"
               rows={7}
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Optional when GEMINI_COMMON_PROMPT is set. Example: Use a blue background."
+              placeholder={
+                mode === "generate"
+                  ? "Create a picture of my cat eating a nano-banana in a fancy restaurant under the Gemini constellation."
+                  : "Optional when GEMINI_COMMON_PROMPT is set. Example: Use a blue background."
+              }
             />
           </div>
 
@@ -195,7 +246,13 @@ export default function Home() {
           ) : null}
 
           <button className="primary-button" type="submit" disabled={isLoading}>
-            {isLoading ? "Editing image..." : "Generate edit"}
+            {isLoading
+              ? mode === "generate"
+                ? "Generating image..."
+                : "Editing image..."
+              : mode === "generate"
+                ? "Generate image"
+                : "Generate edit"}
           </button>
         </form>
       </section>
@@ -206,7 +263,9 @@ export default function Home() {
             <h2>Source</h2>
           </div>
           <div className="image-frame">
-            {sourcePreview ? (
+            {mode === "generate" ? (
+              <span>Text prompt</span>
+            ) : sourcePreview ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={sourcePreview} alt="Uploaded source preview" />
             ) : (
@@ -222,7 +281,7 @@ export default function Home() {
               <a
                 className="download-link"
                 href={outputImage}
-                download={`image-workbench-${size.toLowerCase()}.jpg`}
+                download={`image-workbench-${mode}-${size.toLowerCase()}.jpg`}
               >
                 Download
               </a>

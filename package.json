@@ -7,7 +7,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:image-input": "node scripts/test-gemini-image-input.mjs",
+    "test:text-to-image": "node scripts/test-gemini-text-to-image.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.10.0",

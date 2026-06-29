@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -10,6 +9,8 @@ const ACCEPTED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const OUTPUT_SIZES = new Set(["1K", "2K", "4K"]);
 const MODEL_ENV = "GEMINI_IMAGE_MODEL";
 const COMMON_PROMPT_ENV = "GEMINI_COMMON_PROMPT";
+const INTERACTIONS_ENDPOINT =
+  "https://generativelanguage.googleapis.com/v1beta/interactions";
 
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
@@ -37,6 +38,21 @@ type GeminiApiError = {
 type ParsedGeminiError = {
   status?: number;
   message?: string;
+};
+
+type GeminiImageOutput = {
+  type?: string;
+  data?: string;
+  mime_type?: string;
+};
+
+type GeminiInteractionResponse = {
+  error?: {
+    code?: number | string;
+    message?: string;
+  };
+  output_image?: GeminiImageOutput;
+  outputs?: GeminiImageOutput[];
 };
 
 function parseGeminiJsonError(message: string): ParsedGeminiError {
@@ -90,7 +106,7 @@ function getClientErrorMessage(status: number | undefined, message: string) {
   }
 
   if (status === 429) {
-    return "Gemini API quota is exhausted for this key or project. Check quota/billing or try again later.";
+    return `Gemini API quota/rate limit error: ${message}`;
   }
 
   if (status && status >= 400 && status < 500) {
@@ -108,7 +124,7 @@ function getCommonPrompt() {
   return process.env[COMMON_PROMPT_ENV]?.trim() || "";
 }
 
-function getTextInputs(prompt: string) {
+function getTextParts(prompt: string) {
   const commonPrompt = process.env[COMMON_PROMPT_ENV]?.trim();
   const userPrompt = prompt.trim();
   const inputs = [];
@@ -132,6 +148,61 @@ function getTextInputs(prompt: string) {
 
 function getModel() {
   return process.env[MODEL_ENV]?.trim() || DEFAULT_MODEL;
+}
+
+function getOutputImage(response: GeminiInteractionResponse) {
+  return (
+    response.output_image ??
+    response.outputs?.find((output) => output.type === "image" && output.data)
+  );
+}
+
+async function createInteraction({
+  apiKey,
+  image,
+  imageData,
+  model,
+  prompt,
+}: {
+  apiKey: string;
+  image: File;
+  imageData: string;
+  model: string;
+  prompt: string;
+}) {
+  const response = await fetch(INTERACTIONS_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      model,
+      input: [
+        ...getTextParts(prompt),
+        {
+          type: "image",
+          mime_type: image.type,
+          data: imageData,
+        },
+      ],
+    }),
+  });
+
+  const payload = (await response.json()) as GeminiInteractionResponse;
+  if (!response.ok) {
+    return {
+      error: {
+        status: response.status,
+        message:
+          payload.error?.message ??
+          `Gemini image edit failed with status ${response.status}.`,
+        details: payload.error,
+      },
+    };
+  }
+
+  return { interaction: payload };
 }
 
 export async function POST(request: Request) {
@@ -180,34 +251,40 @@ export async function POST(request: Request) {
 
   try {
     const imageBytes = Buffer.from(await image.arrayBuffer());
-    const ai = new GoogleGenAI({ apiKey });
     const model = getModel();
-    const interaction = await ai.interactions.create({
+    const result = await createInteraction({
+      apiKey,
+      image,
+      imageData: imageBytes.toString("base64"),
       model,
-      input: [
-        ...getTextInputs(prompt),
-        {
-          type: "image",
-          mime_type: image.type,
-          data: imageBytes.toString("base64"),
-        },
-      ],
-      response_format: {
-        type: "image",
-        mime_type: OUTPUT_MIME_TYPE,
-        image_size: size,
-      },
+      prompt,
     });
 
-    const outputImage = interaction.output_image;
+    if (result.error) {
+      console.error("Gemini image edit failed", {
+        model,
+        status: result.error.status,
+        message: result.error.message,
+      });
+
+      return jsonError(
+        getClientErrorMessage(result.error.status, result.error.message),
+        result.error.status >= 400 && result.error.status < 500
+          ? result.error.status
+          : 502,
+      );
+    }
+
+    const outputImage = getOutputImage(result.interaction);
     if (!outputImage?.data) {
       return jsonError("Gemini did not return an edited image.", 502);
     }
+    const mimeType = outputImage.mime_type || OUTPUT_MIME_TYPE;
 
     return NextResponse.json({
       image: {
-        dataUrl: `data:${OUTPUT_MIME_TYPE};base64,${outputImage.data}`,
-        mimeType: OUTPUT_MIME_TYPE,
+        dataUrl: `data:${mimeType};base64,${outputImage.data}`,
+        mimeType,
       },
     });
   } catch (error) {

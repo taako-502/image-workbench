@@ -54,6 +54,14 @@ API ルートはサーバー側で `@google/genai` を呼び出し、JPEG data U
 - `GEMINI_COMMON_PROMPT`
 - `prompt`。空欄の場合は送信しません。
 
+`POST /api/image/generate`
+
+JSON で次の項目を送信します。
+
+- `prompt`: 画像生成指示。`GEMINI_COMMON_PROMPT` が未設定の場合は必須
+
+このルートは画像入力なしの text-to-image 用です。画像入力付きの編集 quota がない Project でも、text-to-image の quota がある場合は利用できます。
+
 # Examples
 
 ## Local Development
@@ -65,6 +73,20 @@ yarn dev
 ```
 
 http://localhost:3000 を開きます。
+
+## API Diagnostics
+
+画像入力付きの API 呼び出しを確認します。
+
+```bash
+yarn test:image-input /path/to/image.jpg
+```
+
+text-to-image の API 呼び出しを確認し、返却画像を `tmp/gemini-text-to-image-output.jpg` に保存します。
+
+```bash
+yarn test:text-to-image "Create a picture of my cat eating a nano-banana"
+```
 
 # Citations
 
