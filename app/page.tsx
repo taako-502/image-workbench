@@ -143,7 +143,7 @@ export default function Home() {
     <main className="page-shell">
       <section className="workspace">
         <div className="intro">
-          <p className="eyebrow">Gemini 3 Pro Image</p>
+          <p className="eyebrow">Nano Banana Pro</p>
           <h1>Image Workbench</h1>
           <p>
             Upload a source image, describe the edit, and generate a polished

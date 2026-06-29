@@ -3,11 +3,12 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const MODEL = "gemini-3-pro-image";
+const DEFAULT_MODEL = "gemini-3-pro-image";
 const OUTPUT_MIME_TYPE = "image/jpeg";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const OUTPUT_SIZES = new Set(["1K", "2K", "4K"]);
+const MODEL_ENV = "GEMINI_IMAGE_MODEL";
 const COMMON_PROMPT_ENV = "GEMINI_COMMON_PROMPT";
 
 function jsonError(message: string, status = 400) {
@@ -85,6 +86,10 @@ function getTextInputs(prompt: string) {
   ];
 }
 
+function getModel() {
+  return process.env[MODEL_ENV]?.trim() || DEFAULT_MODEL;
+}
+
 export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") || "";
 
@@ -131,8 +136,9 @@ export async function POST(request: Request) {
   try {
     const imageBytes = Buffer.from(await image.arrayBuffer());
     const ai = new GoogleGenAI({ apiKey });
+    const model = getModel();
     const interaction = await ai.interactions.create({
-      model: MODEL,
+      model,
       input: [
         ...getTextInputs(prompt),
         {
@@ -161,7 +167,11 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const { status, message } = getGeminiError(error);
-    console.error("Gemini image edit failed", { status, message });
+    console.error("Gemini image edit failed", {
+      model: getModel(),
+      status,
+      message,
+    });
 
     return jsonError(
       getClientErrorMessage(status, message),

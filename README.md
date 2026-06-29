@@ -7,7 +7,7 @@ timestamp: 2026-06-29
 
 # Overview
 
-`image-workbench` は、Gemini 3 Pro Image を使った画像編集向けの最小構成 Next.js App Router UI です。
+`image-workbench` は、Nano Banana Pro を使った画像編集向けの最小構成 Next.js App Router UI です。
 
 このアプリは `GEMINI_API_KEY` をサーバー側に保持します。ブラウザからのリクエストは `POST /api/image/edit` に multipart form data を送信し、そのルートが `@google/genai` を呼び出します。
 
@@ -17,8 +17,11 @@ timestamp: 2026-06-29
 
 ```bash
 GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_IMAGE_MODEL=gemini-3-pro-image
 GEMINI_COMMON_PROMPT=optional_text_sent_before_every_edit_prompt
 ```
+
+`GEMINI_IMAGE_MODEL` は任意です。未設定の場合は Nano Banana Pro のモデル ID である `gemini-3-pro-image` を使います。Quota 回避や検証目的で別モデルを使う場合だけ、`.env.local` またはデプロイ環境で上書きします。
 
 `GEMINI_COMMON_PROMPT` は任意です。設定すると、API ルートは毎回、ブラウザから送信された編集プロンプトより前にこの値を Gemini へ送信します。共通の編集ルール、望ましいトーン、固定の出力制約、UI に毎回入力したくない共通指示に使います。
 
