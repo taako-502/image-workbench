@@ -2,6 +2,7 @@
 type: README
 title: image-workbench
 description: Minimal Next.js UI for Gemini image-to-image editing.
+timestamp: 2026-06-29
 ---
 
 # Overview
@@ -17,6 +18,18 @@ The app keeps `GEMINI_API_KEY` on the server. Browser requests send multipart fo
 ```bash
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
+
+## Billing
+
+This app uses the Gemini Developer API, so usage is billed through Google AI Studio, not a ChatGPT subscription.
+
+For production usage or higher rate limits:
+
+- Review the Gemini Developer API pricing page: https://ai.google.dev/gemini-api/docs/pricing?hl=ja
+- Upgrade the API key's Google AI Studio project to a paid account from the pricing page.
+- Keep `GEMINI_API_KEY` configured in `.env.local` or the deployment environment after upgrading.
+
+The pricing page describes the free, paid, and enterprise tiers. The paid tier is intended for production apps that need higher rate limits, access to advanced features, and content that is not used for product improvement.
 
 ## API
 
@@ -41,3 +54,7 @@ yarn dev
 ```
 
 Open http://localhost:3000.
+
+# Citations
+
+- Gemini Developer API pricing, referenced on 2026-06-29: https://ai.google.dev/gemini-api/docs/pricing?hl=ja
