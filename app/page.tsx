@@ -50,7 +50,7 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [prompt, setPrompt] = useState("");
   const [size, setSize] = useState<OutputSize>("1K");
-  const [mode, setMode] = useState<WorkMode>("generate");
+  const [mode, setMode] = useState<WorkMode>("edit");
   const [sourcePreview, setSourcePreview] = useState("");
   const [localSourceImage, setLocalSourceImage] = useState<LocalSourceImage>({
     name: "",
