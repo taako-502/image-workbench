@@ -30,6 +30,64 @@ type LocalSourceImage = {
   url: string;
 };
 
+function getImageExtension(mimeType: string) {
+  if (mimeType === "image/png") {
+    return "png";
+  }
+
+  if (mimeType === "image/webp") {
+    return "webp";
+  }
+
+  return "jpg";
+}
+
+function getTimestampSlug(date = new Date()) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+    "-",
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds()),
+  ].join("");
+}
+
+function getPromptSlug(prompt: string) {
+  const slug = prompt
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48)
+    .replace(/-+$/g, "");
+
+  return slug || "image";
+}
+
+function getDownloadFileName({
+  mimeType,
+  mode,
+  prompt,
+  size,
+}: {
+  mimeType: string;
+  mode: WorkMode;
+  prompt: string;
+  size: OutputSize;
+}) {
+  return [
+    "image-workbench",
+    mode,
+    getPromptSlug(prompt),
+    size.toLowerCase(),
+    getTimestampSlug(),
+  ].join("-") + `.${getImageExtension(mimeType)}`;
+}
+
 function validateFile(file: File | null) {
   if (!file) {
     return "Choose a PNG, JPEG, or WEBP image.";
@@ -58,6 +116,7 @@ export default function Home() {
     url: "",
   });
   const [outputImage, setOutputImage] = useState("");
+  const [outputFileName, setOutputFileName] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const sourcePreviewRef = useRef("");
@@ -148,6 +207,7 @@ export default function Home() {
 
     setFile(fileError ? null : nextFile);
     setOutputImage("");
+    setOutputFileName("");
     setError(fileError);
   }
 
@@ -175,6 +235,7 @@ export default function Home() {
     setIsLoading(true);
     setError("");
     setOutputImage("");
+    setOutputFileName("");
 
     try {
       const response =
@@ -209,6 +270,14 @@ export default function Home() {
       }
 
       setOutputImage(payload.image.dataUrl);
+      setOutputFileName(
+        getDownloadFileName({
+          mimeType: payload.image.mimeType,
+          mode,
+          prompt,
+          size,
+        }),
+      );
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -241,6 +310,7 @@ export default function Home() {
                 setMode("generate");
                 setError("");
                 setOutputImage("");
+                setOutputFileName("");
               }}
             >
               Text to image
@@ -252,6 +322,7 @@ export default function Home() {
                 setMode("edit");
                 setError("");
                 setOutputImage("");
+                setOutputFileName("");
               }}
             >
               Edit image
@@ -354,7 +425,7 @@ export default function Home() {
               <a
                 className="download-link"
                 href={outputImage}
-                download={`image-workbench-${mode}-${size.toLowerCase()}.jpg`}
+                download={outputFileName}
               >
                 Download
               </a>
