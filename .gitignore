@@ -29,6 +29,9 @@ yarn-error.log*
 .env*.local
 .env
 
+# local image inputs
+/local-images/
+
 # vercel
 .vercel
 

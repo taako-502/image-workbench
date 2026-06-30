@@ -2,7 +2,7 @@
 type: README
 title: image-workbench
 description: Gemini による画像編集向けの最小構成 Next.js UI。
-timestamp: 2026-06-29
+timestamp: 2026-06-30
 ---
 
 # Overview
@@ -27,6 +27,21 @@ GEMINI_COMMON_PROMPT=optional_text_sent_before_every_edit_prompt
 `GEMINI_IMAGE_ASPECT_RATIO` は任意です。未設定の場合は `480x360` と同じ `4:3` を Gemini へ送信します。アイコン向けは `square` または `1:1`、OGP 画像向けは `ogp` または `1200x630` を指定できます。寸法表記は比率へ変換して送信するため、実際の出力ピクセル数は Gemini の `image_size` に依存します。
 
 `GEMINI_COMMON_PROMPT` は任意です。設定すると、API ルートは毎回、ブラウザから送信された編集プロンプトより前にこの値を Gemini へ送信します。共通の編集ルール、望ましいトーン、固定の出力制約、UI に毎回入力したくない共通指示に使います。この値が設定されている場合、画面の追加プロンプトは空欄のまま送信できます。
+
+## Local Source Images
+
+編集モードでは、画面で画像をアップロードしなかった場合に、リポジトリルートの `local-images/` にある画像を入力画像として使います。
+
+対応形式は PNG、JPEG、WEBP です。最大サイズはアップロード時と同じ 10MB です。
+
+ファイル選択の優先順位は次の通りです。
+
+- `source.jpg`、`source.jpeg`、`source.png`、`source.webp`
+- `default.jpg`、`default.jpeg`、`default.png`、`default.webp`
+- `input.jpg`、`input.jpeg`、`input.png`、`input.webp`
+- 上記がない場合は、`local-images/` 内の対応画像ファイル名を昇順に並べた最初のファイル
+
+`local-images/` は `.gitignore` に含めています。検証用や私物の画像を置いても Git には追加されません。
 
 ## Billing
 
@@ -85,6 +100,8 @@ http://localhost:3000 を開きます。
 ```bash
 yarn test:image-input /path/to/image.jpg
 ```
+
+UI から使う場合は、`local-images/source.jpg` などを置いてから編集モードでファイル選択を空のまま実行します。
 
 text-to-image の API 呼び出しを確認し、返却画像を `tmp/gemini-text-to-image-output.jpg` に保存します。
 

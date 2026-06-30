@@ -5,6 +5,10 @@ import {
   type OutputImageSize,
 } from "../geminiImageConfig";
 import { getServerEnv, getValueSuffix } from "../geminiEnv";
+import {
+  LOCAL_SOURCE_IMAGE_DIR,
+  readLocalSourceImage,
+} from "../localSourceImage";
 
 export const runtime = "nodejs";
 
@@ -190,15 +194,15 @@ function findImageOutput(value: unknown): GeminiImageOutput | undefined {
 
 async function createInteraction({
   apiKey,
-  image,
   imageData,
+  imageMimeType,
   model,
   prompt,
   size,
 }: {
   apiKey: string;
-  image: File;
   imageData: string;
+  imageMimeType: string;
   model: string;
   prompt: string;
   size: OutputImageSize;
@@ -219,7 +223,7 @@ async function createInteraction({
         ...getTextParts(prompt),
         {
           type: "image",
-          mime_type: image.type,
+          mime_type: imageMimeType,
           data: imageData,
         },
       ],
@@ -257,13 +261,9 @@ export async function POST(request: Request) {
     return jsonError("Could not read form data.");
   }
 
-  const image = formData.get("image");
+  const uploadedImage = formData.get("image");
   const prompt = formData.get("prompt");
   const size = formData.get("size");
-
-  if (!isFile(image) || image.size === 0) {
-    return jsonError("Image is required.");
-  }
 
   const hasCommonPrompt = Boolean(getCommonPrompt());
   if (typeof prompt !== "string" || (!prompt.trim() && !hasCommonPrompt)) {
@@ -274,12 +274,43 @@ export async function POST(request: Request) {
     return jsonError("Output size must be 1K, 2K, or 4K.");
   }
 
-  if (!ACCEPTED_TYPES.has(image.type)) {
-    return jsonError("Accepted image types are PNG, JPEG, and WEBP.");
-  }
+  let imageData: string;
+  let imageMimeType: string;
+  let sourceImageName: string;
 
-  if (image.size > MAX_FILE_SIZE) {
-    return jsonError("Image must be 10MB or smaller.");
+  if (isFile(uploadedImage) && uploadedImage.size > 0) {
+    if (!ACCEPTED_TYPES.has(uploadedImage.type)) {
+      return jsonError("Accepted image types are PNG, JPEG, and WEBP.");
+    }
+
+    if (uploadedImage.size > MAX_FILE_SIZE) {
+      return jsonError("Image must be 10MB or smaller.");
+    }
+
+    imageData = Buffer.from(await uploadedImage.arrayBuffer()).toString("base64");
+    imageMimeType = uploadedImage.type;
+    sourceImageName = uploadedImage.name;
+  } else {
+    const localSourceImage = await readLocalSourceImage();
+    if (!localSourceImage) {
+      return jsonError(
+        `Image is required. Upload an image or add one to ${LOCAL_SOURCE_IMAGE_DIR}/.`,
+      );
+    }
+
+    if (!ACCEPTED_TYPES.has(localSourceImage.mimeType)) {
+      return jsonError("Accepted image types are PNG, JPEG, and WEBP.");
+    }
+
+    if (localSourceImage.size > MAX_FILE_SIZE) {
+      return jsonError(
+        `Local source image must be 10MB or smaller: ${localSourceImage.fileName}`,
+      );
+    }
+
+    imageData = localSourceImage.bytes.toString("base64");
+    imageMimeType = localSourceImage.mimeType;
+    sourceImageName = `${LOCAL_SOURCE_IMAGE_DIR}/${localSourceImage.fileName}`;
   }
 
   const apiKey = getServerEnv("GEMINI_API_KEY");
@@ -288,12 +319,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const imageBytes = Buffer.from(await image.arrayBuffer());
     const model = getModel();
     const result = await createInteraction({
       apiKey,
-      image,
-      imageData: imageBytes.toString("base64"),
+      imageData,
+      imageMimeType,
       model,
       prompt,
       size,
@@ -306,6 +336,7 @@ export async function POST(request: Request) {
         apiKeySuffix: getValueSuffix(apiKey),
         status: result.error.status,
         message: result.error.message,
+        sourceImage: sourceImageName,
       });
 
       return jsonError(
@@ -335,6 +366,7 @@ export async function POST(request: Request) {
       apiKeySuffix: getValueSuffix(apiKey),
       status,
       message,
+      sourceImage: sourceImageName,
       details: getErrorDetails(error),
     });
 

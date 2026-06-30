@@ -24,6 +24,12 @@ type EditResponse = {
   error?: string;
 };
 
+type LocalSourceImage = {
+  name: string;
+  status: "unknown" | "available" | "missing";
+  url: string;
+};
+
 function validateFile(file: File | null) {
   if (!file) {
     return "Choose a PNG, JPEG, or WEBP image.";
@@ -46,6 +52,11 @@ export default function Home() {
   const [size, setSize] = useState<OutputSize>("1K");
   const [mode, setMode] = useState<WorkMode>("generate");
   const [sourcePreview, setSourcePreview] = useState("");
+  const [localSourceImage, setLocalSourceImage] = useState<LocalSourceImage>({
+    name: "",
+    status: "unknown",
+    url: "",
+  });
   const [outputImage, setOutputImage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -59,6 +70,56 @@ export default function Home() {
     const megabytes = file.size / (1024 * 1024);
     return `${file.name} · ${megabytes.toFixed(2)}MB`;
   }, [file]);
+
+  const sourceDetails = useMemo(() => {
+    if (fileDetails) {
+      return fileDetails;
+    }
+
+    if (localSourceImage.status === "available") {
+      return `Using local-images/${localSourceImage.name}`;
+    }
+
+    return "";
+  }, [fileDetails, localSourceImage.name, localSourceImage.status]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadLocalSourceImage() {
+      try {
+        const response = await fetch("/api/image/source", {
+          cache: "no-store",
+          method: "HEAD",
+        });
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (!response.ok) {
+          setLocalSourceImage({ name: "", status: "missing", url: "" });
+          return;
+        }
+
+        setLocalSourceImage({
+          name: response.headers.get("x-image-workbench-source") || "source image",
+          status: "available",
+          url: `/api/image/source?t=${Date.now()}`,
+        });
+      } catch {
+        if (isMounted) {
+          setLocalSourceImage({ name: "", status: "missing", url: "" });
+        }
+      }
+    }
+
+    loadLocalSourceImage();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -93,14 +154,16 @@ export default function Home() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const fileError = validateFile(file);
-    if (mode === "edit" && fileError) {
-      setError(fileError);
-      return;
+    if (mode === "edit" && file) {
+      const fileError = validateFile(file);
+      if (fileError) {
+        setError(fileError);
+        return;
+      }
     }
 
-    if (mode === "edit" && !file) {
-      setError("Choose a PNG, JPEG, or WEBP image.");
+    if (mode === "edit" && !file && localSourceImage.status === "missing") {
+      setError("Choose an image or add one to local-images/.");
       return;
     }
 
@@ -118,7 +181,9 @@ export default function Home() {
         mode === "edit"
           ? await (() => {
               const formData = new FormData();
-              formData.append("image", file as File);
+              if (file) {
+                formData.append("image", file);
+              }
               formData.append("prompt", prompt.trim());
               formData.append("size", size);
 
@@ -202,8 +267,12 @@ export default function Home() {
               accept={ACCEPTED_TYPES.join(",")}
               onChange={handleFileChange}
             />
-            <span className="hint">PNG, JPEG, or WEBP. Max 10MB.</span>
-            {fileDetails ? <span className="file-details">{fileDetails}</span> : null}
+            <span className="hint">
+              PNG, JPEG, or WEBP. Max 10MB. Falls back to local-images/.
+            </span>
+            {sourceDetails ? (
+              <span className="file-details">{sourceDetails}</span>
+            ) : null}
           </div>
 
           <div className="field">
@@ -269,6 +338,9 @@ export default function Home() {
             ) : sourcePreview ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={sourcePreview} alt="Uploaded source preview" />
+            ) : localSourceImage.status === "available" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={localSourceImage.url} alt="Local source preview" />
             ) : (
               <span>No image selected</span>
             )}
