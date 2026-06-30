@@ -20,6 +20,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
 GEMINI_IMAGE_ASPECT_RATIO=480x360
 GEMINI_COMMON_PROMPT=optional_text_sent_before_every_edit_prompt
+GEMINI_OUTPUT_IMAGE_EXTENSION=png
 ```
 
 `GEMINI_IMAGE_MODEL` は任意です。未設定の場合は Nano Banana Pro のモデル ID である `gemini-3-pro-image-preview` を使います。Quota 回避や検証目的で別モデルを使う場合だけ、`.env.local` またはデプロイ環境で上書きします。
@@ -27,6 +28,8 @@ GEMINI_COMMON_PROMPT=optional_text_sent_before_every_edit_prompt
 `GEMINI_IMAGE_ASPECT_RATIO` は任意です。未設定の場合は `480x360` と同じ `4:3` を Gemini へ送信します。アイコン向けは `square` または `1:1`、OGP 画像向けは `ogp` または `1200x630` を指定できます。寸法表記は比率へ変換して送信するため、実際の出力ピクセル数は Gemini の `image_size` に依存します。
 
 `GEMINI_COMMON_PROMPT` は任意です。設定すると、API ルートは毎回、ブラウザから送信された編集プロンプトより前にこの値を Gemini へ送信します。共通の編集ルール、望ましいトーン、固定の出力制約、UI に毎回入力したくない共通指示に使います。この値が設定されている場合、画面の追加プロンプトは空欄のまま送信できます。
+
+`GEMINI_OUTPUT_IMAGE_EXTENSION` は任意です。生成結果をダウンロードするときの拡張子を指定します。`jpg`、`png`、`webp` を指定できます。未設定または未対応の値の場合は `jpg` として扱います。Gemini が返した画像 MIME type と異なる場合、ブラウザ上で指定形式へ変換してからダウンロードします。
 
 ## Local Source Images
 

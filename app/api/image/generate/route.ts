@@ -4,6 +4,7 @@ import {
   isOutputImageSize,
 } from "../geminiImageConfig";
 import { getServerEnv, getValueSuffix } from "../geminiEnv";
+import { getOutputImageMimeType } from "../outputImageFormat";
 
 export const runtime = "nodejs";
 
@@ -178,6 +179,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     image: {
       dataUrl: `data:${mimeType};base64,${outputImage.data}`,
+      downloadMimeType: getOutputImageMimeType(),
       mimeType,
     },
   });

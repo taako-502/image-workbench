@@ -19,6 +19,7 @@ type WorkMode = "generate" | "edit";
 type EditResponse = {
   image?: {
     dataUrl: string;
+    downloadMimeType?: string;
     mimeType: string;
   };
   error?: string;
@@ -88,6 +89,46 @@ function getDownloadFileName({
   ].join("-") + `.${getImageExtension(mimeType)}`;
 }
 
+function revokeBlobUrl(url: string) {
+  if (url.startsWith("blob:")) {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function loadImage(dataUrl: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not prepare image download."));
+    image.src = dataUrl;
+  });
+}
+
+async function convertImageDataUrl(dataUrl: string, mimeType: string) {
+  const image = await loadImage(dataUrl);
+  const canvas = document.createElement("canvas");
+  canvas.width = image.naturalWidth;
+  canvas.height = image.naturalHeight;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Could not prepare image download.");
+  }
+
+  context.drawImage(image, 0, 0);
+
+  return new Promise<string>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Could not prepare image download."));
+        return;
+      }
+
+      resolve(URL.createObjectURL(blob));
+    }, mimeType);
+  });
+}
+
 function validateFile(file: File | null) {
   if (!file) {
     return "Choose a PNG, JPEG, or WEBP image.";
@@ -116,10 +157,12 @@ export default function Home() {
     url: "",
   });
   const [outputImage, setOutputImage] = useState("");
+  const [outputDownloadUrl, setOutputDownloadUrl] = useState("");
   const [outputFileName, setOutputFileName] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const sourcePreviewRef = useRef("");
+  const outputDownloadUrlRef = useRef("");
 
   const fileDetails = useMemo(() => {
     if (!file) {
@@ -185,8 +228,18 @@ export default function Home() {
       if (sourcePreviewRef.current) {
         URL.revokeObjectURL(sourcePreviewRef.current);
       }
+
+      revokeBlobUrl(outputDownloadUrlRef.current);
     };
   }, []);
+
+  function clearOutput() {
+    setOutputImage("");
+    setOutputFileName("");
+    setOutputDownloadUrl("");
+    revokeBlobUrl(outputDownloadUrlRef.current);
+    outputDownloadUrlRef.current = "";
+  }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const nextFile = event.target.files?.[0] ?? null;
@@ -206,8 +259,7 @@ export default function Home() {
     }
 
     setFile(fileError ? null : nextFile);
-    setOutputImage("");
-    setOutputFileName("");
+    clearOutput();
     setError(fileError);
   }
 
@@ -234,8 +286,7 @@ export default function Home() {
 
     setIsLoading(true);
     setError("");
-    setOutputImage("");
-    setOutputFileName("");
+    clearOutput();
 
     try {
       const response =
@@ -269,10 +320,20 @@ export default function Home() {
         throw new Error(payload.error || "Image editing failed.");
       }
 
+      const downloadMimeType =
+        payload.image.downloadMimeType || payload.image.mimeType;
+      const downloadUrl =
+        downloadMimeType === payload.image.mimeType
+          ? payload.image.dataUrl
+          : await convertImageDataUrl(payload.image.dataUrl, downloadMimeType);
+
+      revokeBlobUrl(outputDownloadUrlRef.current);
+      outputDownloadUrlRef.current = downloadUrl;
       setOutputImage(payload.image.dataUrl);
+      setOutputDownloadUrl(downloadUrl);
       setOutputFileName(
         getDownloadFileName({
-          mimeType: payload.image.mimeType,
+          mimeType: downloadMimeType,
           mode,
           prompt,
           size,
@@ -309,8 +370,7 @@ export default function Home() {
               onClick={() => {
                 setMode("generate");
                 setError("");
-                setOutputImage("");
-                setOutputFileName("");
+                clearOutput();
               }}
             >
               Text to image
@@ -321,8 +381,7 @@ export default function Home() {
               onClick={() => {
                 setMode("edit");
                 setError("");
-                setOutputImage("");
-                setOutputFileName("");
+                clearOutput();
               }}
             >
               Edit image
@@ -421,10 +480,10 @@ export default function Home() {
         <article className="preview-panel">
           <div className="panel-heading">
             <h2>Output</h2>
-            {outputImage ? (
+            {outputDownloadUrl ? (
               <a
                 className="download-link"
-                href={outputImage}
+                href={outputDownloadUrl}
                 download={outputFileName}
               >
                 Download
