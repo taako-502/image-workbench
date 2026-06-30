@@ -19,6 +19,7 @@ type WorkMode = "generate" | "edit";
 type EditResponse = {
   image?: {
     dataUrl: string;
+    downloadBaseName?: string;
     downloadMimeType?: string;
     mimeType: string;
   };
@@ -57,8 +58,12 @@ function getTimestampSlug(date = new Date()) {
   ].join("");
 }
 
-function getPromptSlug(prompt: string) {
-  const slug = prompt
+function removeImageExtension(value: string) {
+  return value.replace(/\.(jpe?g|png|webp)$/i, "");
+}
+
+function getFileNameSlug(value: string, fallback: string) {
+  const slug = removeImageExtension(value)
     .trim()
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, "-")
@@ -66,27 +71,17 @@ function getPromptSlug(prompt: string) {
     .slice(0, 48)
     .replace(/-+$/g, "");
 
-  return slug || "image";
+  return slug || fallback;
 }
 
 function getDownloadFileName({
+  baseName,
   mimeType,
-  mode,
-  prompt,
-  size,
 }: {
+  baseName: string;
   mimeType: string;
-  mode: WorkMode;
-  prompt: string;
-  size: OutputSize;
 }) {
-  return [
-    "image-workbench",
-    mode,
-    getPromptSlug(prompt),
-    size.toLowerCase(),
-    getTimestampSlug(),
-  ].join("-") + `.${getImageExtension(mimeType)}`;
+  return `${getFileNameSlug(baseName, "image-workbench")}-${getTimestampSlug()}.${getImageExtension(mimeType)}`;
 }
 
 function revokeBlobUrl(url: string) {
@@ -333,10 +328,8 @@ export default function Home() {
       setOutputDownloadUrl(downloadUrl);
       setOutputFileName(
         getDownloadFileName({
+          baseName: payload.image.downloadBaseName || "image-workbench",
           mimeType: downloadMimeType,
-          mode,
-          prompt,
-          size,
         }),
       );
     } catch (requestError) {
