@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import {
+  getGeminiImageConfig,
+  isOutputImageSize,
+} from "../geminiImageConfig";
 import { getServerEnv, getValueSuffix } from "../geminiEnv";
 
 export const runtime = "nodejs";
@@ -105,7 +109,7 @@ function findImageOutput(value: unknown): GeminiImageOutput | undefined {
 }
 
 export async function POST(request: Request) {
-  let body: { prompt?: unknown };
+  let body: { prompt?: unknown; size?: unknown };
   try {
     body = (await request.json()) as { prompt?: unknown };
   } catch {
@@ -118,12 +122,19 @@ export async function POST(request: Request) {
     return jsonError(`Prompt is required unless ${COMMON_PROMPT_ENV} is set.`);
   }
 
+  if (body.size !== undefined && !isOutputImageSize(body.size)) {
+    return jsonError("Output size must be 1K, 2K, or 4K.");
+  }
+
   const apiKey = getServerEnv("GEMINI_API_KEY");
   if (!apiKey) {
     return jsonError("Server is missing GEMINI_API_KEY.", 500);
   }
 
   const model = getModel();
+  const imageConfig = getGeminiImageConfig(
+    isOutputImageSize(body.size) ? body.size : undefined,
+  );
   const response = await fetch(INTERACTIONS_ENDPOINT, {
     method: "POST",
     headers: {
@@ -133,6 +144,9 @@ export async function POST(request: Request) {
     body: JSON.stringify({
       model,
       input: textInputs,
+      generation_config: {
+        image_config: imageConfig,
+      },
     }),
   });
 
@@ -143,6 +157,7 @@ export async function POST(request: Request) {
       `Gemini image generation failed with status ${response.status}.`;
     console.error("Gemini image generation failed", {
       model,
+      imageConfig,
       apiKeySuffix: getValueSuffix(apiKey),
       status: response.status,
       message,

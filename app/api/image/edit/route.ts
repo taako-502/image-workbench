@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  getGeminiImageConfig,
+  isOutputImageSize,
+  type OutputImageSize,
+} from "../geminiImageConfig";
 import { getServerEnv, getValueSuffix } from "../geminiEnv";
 
 export const runtime = "nodejs";
@@ -7,7 +12,6 @@ const DEFAULT_MODEL = "gemini-3-pro-image-preview";
 const OUTPUT_MIME_TYPE = "image/jpeg";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
-const OUTPUT_SIZES = new Set(["1K", "2K", "4K"]);
 const MODEL_ENV = "GEMINI_IMAGE_MODEL";
 const COMMON_PROMPT_ENV = "GEMINI_COMMON_PROMPT";
 const INTERACTIONS_ENDPOINT =
@@ -190,13 +194,16 @@ async function createInteraction({
   imageData,
   model,
   prompt,
+  size,
 }: {
   apiKey: string;
   image: File;
   imageData: string;
   model: string;
   prompt: string;
+  size: OutputImageSize;
 }) {
+  const imageConfig = getGeminiImageConfig(size);
   const response = await fetch(INTERACTIONS_ENDPOINT, {
     method: "POST",
     headers: {
@@ -205,6 +212,9 @@ async function createInteraction({
     },
     body: JSON.stringify({
       model,
+      generation_config: {
+        image_config: imageConfig,
+      },
       input: [
         ...getTextParts(prompt),
         {
@@ -226,10 +236,11 @@ async function createInteraction({
           `Gemini image edit failed with status ${response.status}.`,
         details: payload.error,
       },
+      imageConfig,
     };
   }
 
-  return { interaction: payload };
+  return { imageConfig, interaction: payload };
 }
 
 export async function POST(request: Request) {
@@ -259,7 +270,7 @@ export async function POST(request: Request) {
     return jsonError(`Prompt is required unless ${COMMON_PROMPT_ENV} is set.`);
   }
 
-  if (typeof size !== "string" || !OUTPUT_SIZES.has(size)) {
+  if (!isOutputImageSize(size)) {
     return jsonError("Output size must be 1K, 2K, or 4K.");
   }
 
@@ -285,11 +296,13 @@ export async function POST(request: Request) {
       imageData: imageBytes.toString("base64"),
       model,
       prompt,
+      size,
     });
 
     if (result.error) {
       console.error("Gemini image edit failed", {
         model,
+        imageConfig: result.imageConfig,
         apiKeySuffix: getValueSuffix(apiKey),
         status: result.error.status,
         message: result.error.message,

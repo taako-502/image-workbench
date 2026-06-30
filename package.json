@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "yarn lint && yarn typecheck",
     "test:image-input": "node scripts/test-gemini-image-input.mjs",
     "test:text-to-image": "node scripts/test-gemini-text-to-image.mjs"
   },

@@ -134,6 +134,7 @@ export default function Home() {
               },
               body: JSON.stringify({
                 prompt: prompt.trim(),
+                size,
               }),
             });
       const payload = (await response.json()) as EditResponse;

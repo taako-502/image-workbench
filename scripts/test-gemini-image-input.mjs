@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { getGeminiImageConfig } from "./gemini-image-config.mjs";
 
 const ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/interactions";
 const DEFAULT_MODEL = "gemini-3.1-flash-image";
@@ -88,6 +89,7 @@ async function main() {
   const env = await loadEnv();
   const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
   const model = env.GEMINI_IMAGE_MODEL || process.env.GEMINI_IMAGE_MODEL || DEFAULT_MODEL;
+  const imageConfig = getGeminiImageConfig(env);
 
   if (!imagePath) {
     throw new Error(
@@ -110,6 +112,9 @@ async function main() {
     },
     body: JSON.stringify({
       model,
+      generation_config: {
+        image_config: imageConfig,
+      },
       input: [
         {
           type: "text",
@@ -127,6 +132,7 @@ async function main() {
   const text = await response.text();
   console.log(`status: ${response.status}`);
   console.log(`model: ${model}`);
+  console.log(`image config: ${JSON.stringify(imageConfig)}`);
   console.log(`api key suffix: ${apiKey.slice(-8)}`);
 
   if (!response.ok) {
