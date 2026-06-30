@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getServerEnv, getValueSuffix } from "../geminiEnv";
 
 export const runtime = "nodejs";
 
@@ -121,11 +122,11 @@ function getClientErrorMessage(status: number | undefined, message: string) {
 }
 
 function getCommonPrompt() {
-  return process.env[COMMON_PROMPT_ENV]?.trim() || "";
+  return getServerEnv(COMMON_PROMPT_ENV);
 }
 
 function getTextParts(prompt: string) {
-  const commonPrompt = process.env[COMMON_PROMPT_ENV]?.trim();
+  const commonPrompt = getServerEnv(COMMON_PROMPT_ENV);
   const userPrompt = prompt.trim();
   const inputs = [];
 
@@ -147,14 +148,40 @@ function getTextParts(prompt: string) {
 }
 
 function getModel() {
-  return process.env[MODEL_ENV]?.trim() || DEFAULT_MODEL;
+  return getServerEnv(MODEL_ENV) || DEFAULT_MODEL;
 }
 
 function getOutputImage(response: GeminiInteractionResponse) {
-  return (
-    response.output_image ??
-    response.outputs?.find((output) => output.type === "image" && output.data)
-  );
+  return response.output_image ?? findImageOutput(response);
+}
+
+function findImageOutput(value: unknown): GeminiImageOutput | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const current = value as GeminiImageOutput;
+  if (current.type === "image" && current.data) {
+    return current;
+  }
+
+  for (const child of Object.values(value)) {
+    if (Array.isArray(child)) {
+      for (const item of child) {
+        const image = findImageOutput(item);
+        if (image) {
+          return image;
+        }
+      }
+    } else if (child && typeof child === "object") {
+      const image = findImageOutput(child);
+      if (image) {
+        return image;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 async function createInteraction({
@@ -244,7 +271,7 @@ export async function POST(request: Request) {
     return jsonError("Image must be 10MB or smaller.");
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getServerEnv("GEMINI_API_KEY");
   if (!apiKey) {
     return jsonError("Server is missing GEMINI_API_KEY.", 500);
   }
@@ -263,6 +290,7 @@ export async function POST(request: Request) {
     if (result.error) {
       console.error("Gemini image edit failed", {
         model,
+        apiKeySuffix: getValueSuffix(apiKey),
         status: result.error.status,
         message: result.error.message,
       });
@@ -291,6 +319,7 @@ export async function POST(request: Request) {
     const { status, message } = getGeminiError(error);
     console.error("Gemini image edit failed", {
       model: getModel(),
+      apiKeySuffix: getValueSuffix(apiKey),
       status,
       message,
       details: getErrorDetails(error),

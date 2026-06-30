@@ -36,6 +36,34 @@ async function loadEnv() {
   }
 }
 
+function findImageOutput(value) {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  if (value.type === "image" && value.data) {
+    return value;
+  }
+
+  for (const child of Object.values(value)) {
+    if (Array.isArray(child)) {
+      for (const item of child) {
+        const image = findImageOutput(item);
+        if (image) {
+          return image;
+        }
+      }
+    } else if (child && typeof child === "object") {
+      const image = findImageOutput(child);
+      if (image) {
+        return image;
+      }
+    }
+  }
+
+  return undefined;
+}
+
 function getMimeType(filePath) {
   const extension = path.extname(filePath).toLowerCase();
 
@@ -58,8 +86,8 @@ async function main() {
   const imagePath = process.argv[2];
   const prompt = process.argv[3] || DEFAULT_PROMPT;
   const env = await loadEnv();
-  const apiKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_IMAGE_MODEL || env.GEMINI_IMAGE_MODEL || DEFAULT_MODEL;
+  const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const model = env.GEMINI_IMAGE_MODEL || process.env.GEMINI_IMAGE_MODEL || DEFAULT_MODEL;
 
   if (!imagePath) {
     throw new Error(
@@ -100,7 +128,18 @@ async function main() {
   console.log(`status: ${response.status}`);
   console.log(`model: ${model}`);
   console.log(`api key suffix: ${apiKey.slice(-8)}`);
-  console.log(text);
+
+  if (!response.ok) {
+    console.log(text);
+    process.exit(1);
+  }
+
+  const payload = JSON.parse(text);
+  const outputImage = findImageOutput(payload);
+  console.log(outputImage?.data ? "image: returned" : "image: not returned");
+  if (!outputImage?.data) {
+    console.log(JSON.stringify(payload, null, 2).slice(0, 2000));
+  }
 }
 
 main().catch((error) => {

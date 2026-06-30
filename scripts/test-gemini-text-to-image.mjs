@@ -36,18 +36,43 @@ async function loadEnv() {
 }
 
 function getOutputImage(payload) {
-  return (
-    payload.output_image ??
-    payload.outputs?.find((output) => output.type === "image" && output.data)
-  );
+  return payload.output_image ?? findImageOutput(payload);
+}
+
+function findImageOutput(value) {
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  if (value.type === "image" && value.data) {
+    return value;
+  }
+
+  for (const child of Object.values(value)) {
+    if (Array.isArray(child)) {
+      for (const item of child) {
+        const image = findImageOutput(item);
+        if (image) {
+          return image;
+        }
+      }
+    } else if (child && typeof child === "object") {
+      const image = findImageOutput(child);
+      if (image) {
+        return image;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 async function main() {
   const prompt = process.argv[2];
   const outputPath = process.argv[3] || DEFAULT_OUTPUT;
   const env = await loadEnv();
-  const apiKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY;
-  const model = process.env.GEMINI_IMAGE_MODEL || env.GEMINI_IMAGE_MODEL || DEFAULT_MODEL;
+  const apiKey = env.GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const model = env.GEMINI_IMAGE_MODEL || process.env.GEMINI_IMAGE_MODEL || DEFAULT_MODEL;
 
   if (!prompt) {
     throw new Error(
@@ -88,7 +113,7 @@ async function main() {
 
   const outputImage = getOutputImage(payload);
   if (!outputImage?.data) {
-    console.log(JSON.stringify(payload));
+    console.log(JSON.stringify(payload, null, 2).slice(0, 2000));
     throw new Error("Gemini did not return an image.");
   }
 
