@@ -13,10 +13,13 @@ import {
   getOutputImageMimeType,
   getOutputImageName,
 } from "../outputImageFormat";
+import {
+  DEFAULT_GEMINI_IMAGE_MODEL,
+  isGeminiImageModel,
+} from "../../../geminiImageModels";
 
 export const runtime = "nodejs";
 
-const DEFAULT_MODEL = "gemini-3-pro-image-preview";
 const OUTPUT_MIME_TYPE = "image/jpeg";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -137,6 +140,11 @@ function getCommonPrompt() {
   return getServerEnv(COMMON_PROMPT_ENV);
 }
 
+function getConfiguredModel() {
+  const envModel = getServerEnv(MODEL_ENV);
+  return isGeminiImageModel(envModel) ? envModel : DEFAULT_GEMINI_IMAGE_MODEL;
+}
+
 function getTextParts(prompt: string) {
   const commonPrompt = getServerEnv(COMMON_PROMPT_ENV);
   const userPrompt = prompt.trim();
@@ -159,8 +167,12 @@ function getTextParts(prompt: string) {
   return inputs;
 }
 
-function getModel() {
-  return getServerEnv(MODEL_ENV) || DEFAULT_MODEL;
+function getModel(value: FormDataEntryValue | null) {
+  if (value === null || value === "") {
+    return getConfiguredModel();
+  }
+
+  return isGeminiImageModel(value) ? value : undefined;
 }
 
 function getOutputImage(response: GeminiInteractionResponse) {
@@ -268,6 +280,7 @@ export async function POST(request: Request) {
   const uploadedImage = formData.get("image");
   const prompt = formData.get("prompt");
   const size = formData.get("size");
+  const requestedModel = formData.get("model");
 
   const hasCommonPrompt = Boolean(getCommonPrompt());
   if (typeof prompt !== "string" || (!prompt.trim() && !hasCommonPrompt)) {
@@ -276,6 +289,13 @@ export async function POST(request: Request) {
 
   if (!isOutputImageSize(size)) {
     return jsonError("Output size must be 1K, 2K, or 4K.");
+  }
+
+  const model = getModel(requestedModel);
+  if (!model) {
+    return jsonError(
+      "Model must be gemini-3-pro-image, gemini-3.1-flash-image, or gemini-3.1-flash-lite-image.",
+    );
   }
 
   let imageData: string;
@@ -323,7 +343,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    const model = getModel();
     const result = await createInteraction({
       apiKey,
       imageData,
@@ -368,7 +387,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const { status, message } = getGeminiError(error);
     console.error("Gemini image edit failed", {
-      model: getModel(),
+      model,
       apiKeySuffix: getValueSuffix(apiKey),
       status,
       message,

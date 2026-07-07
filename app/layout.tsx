@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Image Workbench",
-  description: "Edit images with Nano Banana Pro.",
+  description: "Generate and edit images with Nano Banana models.",
 };
 
 export default function RootLayout({

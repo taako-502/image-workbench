@@ -1,13 +1,13 @@
 ---
 type: README
 title: image-workbench
-description: Gemini による画像編集向けの最小構成 Next.js UI。
-timestamp: 2026-06-30
+description: Gemini による画像生成・編集向けの最小構成 Next.js UI。
+timestamp: 2026-07-08
 ---
 
 # Overview
 
-`image-workbench` は、Nano Banana Pro を使った画像編集向けの最小構成 Next.js App Router UI です。
+`image-workbench` は、Nano Banana 系の Gemini 画像モデルを使った画像生成・編集向けの最小構成 Next.js App Router UI です。
 
 このアプリは `GEMINI_API_KEY` をサーバー側に保持します。ブラウザからのリクエストは `POST /api/image/edit` に multipart form data を送信し、そのルートが `@google/genai` を呼び出します。
 
@@ -17,14 +17,20 @@ timestamp: 2026-06-30
 
 ```bash
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_IMAGE_MODEL=gemini-3-pro-image-preview
+GEMINI_IMAGE_MODEL=gemini-3.1-flash-image
 GEMINI_IMAGE_ASPECT_RATIO=480x360
 GEMINI_COMMON_PROMPT=optional_text_sent_before_every_edit_prompt
 GEMINI_OUTPUT_IMAGE_EXTENSION=png
 GEMINI_OUTPUT_IMAGE_NAME=image-workbench
 ```
 
-`GEMINI_IMAGE_MODEL` は任意です。未設定の場合は Nano Banana Pro のモデル ID である `gemini-3-pro-image-preview` を使います。Quota 回避や検証目的で別モデルを使う場合だけ、`.env.local` またはデプロイ環境で上書きします。
+`GEMINI_IMAGE_MODEL` は任意です。未設定の場合は `gemini-3.1-flash-image` を使います。画面上では次の 3 つからモデルを選択でき、リクエストの `model` が指定された場合はその値を優先します。
+
+- `gemini-3-pro-image`: Nano Banana Pro
+- `gemini-3.1-flash-image`: Nano Banana 2
+- `gemini-3.1-flash-lite-image`: Nano Banana Lite
+
+モデル名は Gemini API へ送る正式な model ID を使います。Nano Banana 系の別名は画面表示用のラベルとして扱います。
 
 `GEMINI_IMAGE_ASPECT_RATIO` は任意です。未設定の場合は `480x360` と同じ `4:3` を Gemini へ送信します。アイコン向けは `square` または `1:1`、OGP 画像向けは `ogp` または `1200x630` を指定できます。寸法表記は比率へ変換して送信するため、実際の出力ピクセル数は Gemini の `image_size` に依存します。
 
@@ -70,6 +76,7 @@ GEMINI_OUTPUT_IMAGE_NAME=image-workbench
 - `image`: PNG、JPEG、または WEBP ファイル。最大 10MB
 - `prompt`: 追加の編集指示。`GEMINI_COMMON_PROMPT` が未設定の場合は必須
 - `size`: `1K`、`2K`、または `4K`
+- `model`: `gemini-3-pro-image`、`gemini-3.1-flash-image`、または `gemini-3.1-flash-lite-image`
 
 API ルートはサーバー側で Gemini Interactions API を呼び出し、JPEG data URL を返します。`size` は Gemini の `generation_config.image_config.image_size`、`GEMINI_IMAGE_ASPECT_RATIO` は `generation_config.image_config.aspect_ratio` として送信します。
 
@@ -84,6 +91,7 @@ JSON で次の項目を送信します。
 
 - `prompt`: 画像生成指示。`GEMINI_COMMON_PROMPT` が未設定の場合は必須
 - `size`: `1K`、`2K`、または `4K`
+- `model`: `gemini-3-pro-image`、`gemini-3.1-flash-image`、または `gemini-3.1-flash-lite-image`
 
 このルートは画像入力なしの text-to-image 用です。画像入力付きの編集 quota がない Project でも、text-to-image の quota がある場合は利用できます。
 

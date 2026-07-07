@@ -8,10 +8,13 @@ import {
   getOutputImageMimeType,
   getOutputImageName,
 } from "../outputImageFormat";
+import {
+  DEFAULT_GEMINI_IMAGE_MODEL,
+  isGeminiImageModel,
+} from "../../../geminiImageModels";
 
 export const runtime = "nodejs";
 
-const DEFAULT_MODEL = "gemini-3-pro-image-preview";
 const OUTPUT_MIME_TYPE = "image/jpeg";
 const MODEL_ENV = "GEMINI_IMAGE_MODEL";
 const COMMON_PROMPT_ENV = "GEMINI_COMMON_PROMPT";
@@ -37,8 +40,17 @@ function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
 
-function getModel() {
-  return getServerEnv(MODEL_ENV) || DEFAULT_MODEL;
+function getConfiguredModel() {
+  const envModel = getServerEnv(MODEL_ENV);
+  return isGeminiImageModel(envModel) ? envModel : DEFAULT_GEMINI_IMAGE_MODEL;
+}
+
+function getModel(value: unknown) {
+  if (value === undefined || value === null || value === "") {
+    return getConfiguredModel();
+  }
+
+  return isGeminiImageModel(value) ? value : undefined;
 }
 
 function getTextInputs(prompt: string) {
@@ -113,9 +125,13 @@ function findImageOutput(value: unknown): GeminiImageOutput | undefined {
 }
 
 export async function POST(request: Request) {
-  let body: { prompt?: unknown; size?: unknown };
+  let body: { model?: unknown; prompt?: unknown; size?: unknown };
   try {
-    body = (await request.json()) as { prompt?: unknown };
+    body = (await request.json()) as {
+      model?: unknown;
+      prompt?: unknown;
+      size?: unknown;
+    };
   } catch {
     return jsonError("Request must use JSON.");
   }
@@ -130,12 +146,18 @@ export async function POST(request: Request) {
     return jsonError("Output size must be 1K, 2K, or 4K.");
   }
 
+  const model = getModel(body.model);
+  if (!model) {
+    return jsonError(
+      "Model must be gemini-3-pro-image, gemini-3.1-flash-image, or gemini-3.1-flash-lite-image.",
+    );
+  }
+
   const apiKey = getServerEnv("GEMINI_API_KEY");
   if (!apiKey) {
     return jsonError("Server is missing GEMINI_API_KEY.", 500);
   }
 
-  const model = getModel();
   const imageConfig = getGeminiImageConfig(
     isOutputImageSize(body.size) ? body.size : undefined,
   );

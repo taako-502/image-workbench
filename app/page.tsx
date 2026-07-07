@@ -8,6 +8,11 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  DEFAULT_GEMINI_IMAGE_MODEL,
+  GEMINI_IMAGE_MODELS,
+  type GeminiImageModel,
+} from "./geminiImageModels";
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -145,6 +150,9 @@ export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [size, setSize] = useState<OutputSize>("1K");
   const [mode, setMode] = useState<WorkMode>("edit");
+  const [model, setModel] = useState<GeminiImageModel>(
+    DEFAULT_GEMINI_IMAGE_MODEL,
+  );
   const [sourcePreview, setSourcePreview] = useState("");
   const [localSourceImage, setLocalSourceImage] = useState<LocalSourceImage>({
     name: "",
@@ -293,6 +301,7 @@ export default function Home() {
               }
               formData.append("prompt", prompt.trim());
               formData.append("size", size);
+              formData.append("model", model);
 
               return fetch("/api/image/edit", {
                 method: "POST",
@@ -307,6 +316,7 @@ export default function Home() {
               body: JSON.stringify({
                 prompt: prompt.trim(),
                 size,
+                model,
               }),
             });
       const payload = (await response.json()) as EditResponse;
@@ -347,7 +357,7 @@ export default function Home() {
     <main className="page-shell">
       <section className="workspace">
         <div className="intro">
-          <p className="eyebrow">Nano Banana Pro</p>
+          <p className="eyebrow">Nano Banana Models</p>
           <h1>Image Workbench</h1>
           <p>
             Create an image from text, or edit a source image when your Gemini
@@ -414,6 +424,24 @@ export default function Home() {
                   : "Optional when GEMINI_COMMON_PROMPT is set. Example: Use a blue background."
               }
             />
+          </div>
+
+          <div className="field">
+            <label htmlFor="model">Model</label>
+            <select
+              id="model"
+              name="model"
+              value={model}
+              onChange={(event) =>
+                setModel(event.target.value as GeminiImageModel)
+              }
+            >
+              {GEMINI_IMAGE_MODELS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label} ({option.id})
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="field">
