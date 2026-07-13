@@ -2,7 +2,7 @@
 type: README
 title: image-workbench
 description: Gemini による画像生成・編集向けの最小構成 Next.js UI。
-timestamp: 2026-07-08
+timestamp: 2026-07-13
 ---
 
 # Overview
@@ -32,7 +32,7 @@ GEMINI_OUTPUT_IMAGE_NAME=image-workbench
 
 モデル名は Gemini API へ送る正式な model ID を使います。Nano Banana 系の別名は画面表示用のラベルとして扱います。
 
-`GEMINI_IMAGE_ASPECT_RATIO` は任意です。未設定の場合は `480x360` と同じ `4:3` を Gemini へ送信します。アイコン向けは `square` または `1:1`、OGP 画像向けは `ogp` または `1200x630` を指定できます。寸法表記は比率へ変換して送信するため、実際の出力ピクセル数は Gemini の `image_size` に依存します。
+`GEMINI_IMAGE_ASPECT_RATIO` は任意です。未設定の場合は `480x360` と同じ `4:3` を Gemini へ送信します。画面上では縦横比をプルダウンで選択でき、初期値にはこの環境変数の値を使います。アイコン向けは `square` または `1:1`、OGP 画像向けは `ogp` または `1200x630` を指定できます。寸法表記は比率へ変換して送信するため、実際の出力ピクセル数は Gemini の `image_size` に依存します。
 
 `GEMINI_COMMON_PROMPT` は任意です。設定すると、API ルートは毎回、ブラウザから送信された編集プロンプトより前にこの値を Gemini へ送信します。共通の編集ルール、望ましいトーン、固定の出力制約、UI に毎回入力したくない共通指示に使います。この値が設定されている場合、画面の追加プロンプトは空欄のまま送信できます。
 
@@ -76,9 +76,10 @@ GEMINI_OUTPUT_IMAGE_NAME=image-workbench
 - `image`: PNG、JPEG、または WEBP ファイル。最大 10MB
 - `prompt`: 追加の編集指示。`GEMINI_COMMON_PROMPT` が未設定の場合は必須
 - `size`: `1K`、`2K`、または `4K`
+- `aspectRatio`: `4:3`、`1:1`、`16:9` などの縦横比。未指定の場合は `GEMINI_IMAGE_ASPECT_RATIO`
 - `model`: `gemini-3-pro-image`、`gemini-3.1-flash-image`、または `gemini-3.1-flash-lite-image`
 
-API ルートはサーバー側で Gemini Interactions API を呼び出し、JPEG data URL を返します。`size` は Gemini の `generation_config.image_config.image_size`、`GEMINI_IMAGE_ASPECT_RATIO` は `generation_config.image_config.aspect_ratio` として送信します。
+API ルートはサーバー側で Gemini Interactions API を呼び出し、JPEG data URL を返します。`size` は Gemini の `generation_config.image_config.image_size`、`aspectRatio` または `GEMINI_IMAGE_ASPECT_RATIO` は `generation_config.image_config.aspect_ratio` として送信します。
 
 `GEMINI_COMMON_PROMPT` が設定されている場合、ルートは次の順序で 2 つのテキスト入力を Gemini へ送信します。
 
@@ -91,6 +92,7 @@ JSON で次の項目を送信します。
 
 - `prompt`: 画像生成指示。`GEMINI_COMMON_PROMPT` が未設定の場合は必須
 - `size`: `1K`、`2K`、または `4K`
+- `aspectRatio`: `4:3`、`1:1`、`16:9` などの縦横比。未指定の場合は `GEMINI_IMAGE_ASPECT_RATIO`
 - `model`: `gemini-3-pro-image`、`gemini-3.1-flash-image`、または `gemini-3.1-flash-lite-image`
 
 このルートは画像入力なしの text-to-image 用です。画像入力付きの編集 quota がない Project でも、text-to-image の quota がある場合は利用できます。

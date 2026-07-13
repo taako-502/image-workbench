@@ -13,6 +13,11 @@ import {
   GEMINI_IMAGE_MODELS,
   type GeminiImageModel,
 } from "./geminiImageModels";
+import {
+  DEFAULT_IMAGE_ASPECT_RATIO,
+  IMAGE_ASPECT_RATIO_OPTIONS,
+  isImageAspectRatio,
+} from "./imageAspectRatios";
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -35,6 +40,10 @@ type LocalSourceImage = {
   name: string;
   status: "unknown" | "available" | "missing";
   url: string;
+};
+
+type ImageConfigResponse = {
+  defaultAspectRatio?: string;
 };
 
 function getImageExtension(mimeType: string) {
@@ -149,6 +158,7 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [prompt, setPrompt] = useState("");
   const [size, setSize] = useState<OutputSize>("1K");
+  const [aspectRatio, setAspectRatio] = useState(DEFAULT_IMAGE_ASPECT_RATIO);
   const [mode, setMode] = useState<WorkMode>("edit");
   const [model, setModel] = useState<GeminiImageModel>(
     DEFAULT_GEMINI_IMAGE_MODEL,
@@ -163,9 +173,21 @@ export default function Home() {
   const [outputDownloadUrl, setOutputDownloadUrl] = useState("");
   const [outputFileName, setOutputFileName] = useState("");
   const [error, setError] = useState("");
+  const [isConfigLoading, setIsConfigLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const sourcePreviewRef = useRef("");
   const outputDownloadUrlRef = useRef("");
+
+  const aspectRatioOptions = useMemo(() => {
+    if (isImageAspectRatio(aspectRatio)) {
+      return IMAGE_ASPECT_RATIO_OPTIONS;
+    }
+
+    return [
+      ...IMAGE_ASPECT_RATIO_OPTIONS,
+      { value: aspectRatio, label: `${aspectRatio} Custom` },
+    ];
+  }, [aspectRatio]);
 
   const fileDetails = useMemo(() => {
     if (!file) {
@@ -190,6 +212,25 @@ export default function Home() {
 
   useEffect(() => {
     let isMounted = true;
+
+    async function loadImageConfig() {
+      try {
+        const response = await fetch("/api/image/config", {
+          cache: "no-store",
+        });
+        const payload = (await response.json()) as ImageConfigResponse;
+
+        if (isMounted && response.ok && payload.defaultAspectRatio) {
+          setAspectRatio(payload.defaultAspectRatio);
+        }
+      } catch {
+        // Keep the client fallback when the config endpoint is unavailable.
+      } finally {
+        if (isMounted) {
+          setIsConfigLoading(false);
+        }
+      }
+    }
 
     async function loadLocalSourceImage() {
       try {
@@ -219,6 +260,7 @@ export default function Home() {
       }
     }
 
+    loadImageConfig();
     loadLocalSourceImage();
 
     return () => {
@@ -301,6 +343,7 @@ export default function Home() {
               }
               formData.append("prompt", prompt.trim());
               formData.append("size", size);
+              formData.append("aspectRatio", aspectRatio);
               formData.append("model", model);
 
               return fetch("/api/image/edit", {
@@ -316,6 +359,7 @@ export default function Home() {
               body: JSON.stringify({
                 prompt: prompt.trim(),
                 size,
+                aspectRatio,
                 model,
               }),
             });
@@ -460,14 +504,36 @@ export default function Home() {
             </select>
           </div>
 
+          <div className="field">
+            <label htmlFor="aspect-ratio">Aspect ratio</label>
+            <select
+              id="aspect-ratio"
+              name="aspectRatio"
+              value={aspectRatio}
+              onChange={(event) => setAspectRatio(event.target.value)}
+            >
+              {aspectRatioOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {error ? (
             <p className="error" role="alert">
               {error}
             </p>
           ) : null}
 
-          <button className="primary-button" type="submit" disabled={isLoading}>
-            {isLoading
+          <button
+            className="primary-button"
+            type="submit"
+            disabled={isLoading || isConfigLoading}
+          >
+            {isConfigLoading
+              ? "Loading settings..."
+              : isLoading
               ? mode === "generate"
                 ? "Generating image..."
                 : "Editing image..."

@@ -4,6 +4,7 @@ import {
   isOutputImageSize,
   type OutputImageSize,
 } from "../geminiImageConfig";
+import { isValidImageAspectRatio } from "../../../imageAspectRatios";
 import { getServerEnv, getValueSuffix } from "../geminiEnv";
 import {
   LOCAL_SOURCE_IMAGE_DIR,
@@ -215,6 +216,7 @@ async function createInteraction({
   model,
   prompt,
   size,
+  aspectRatio,
 }: {
   apiKey: string;
   imageData: string;
@@ -222,8 +224,9 @@ async function createInteraction({
   model: string;
   prompt: string;
   size: OutputImageSize;
+  aspectRatio?: string;
 }) {
-  const imageConfig = getGeminiImageConfig(size);
+  const imageConfig = getGeminiImageConfig(size, aspectRatio);
   const response = await fetch(INTERACTIONS_ENDPOINT, {
     method: "POST",
     headers: {
@@ -280,6 +283,7 @@ export async function POST(request: Request) {
   const uploadedImage = formData.get("image");
   const prompt = formData.get("prompt");
   const size = formData.get("size");
+  const aspectRatio = formData.get("aspectRatio");
   const requestedModel = formData.get("model");
 
   const hasCommonPrompt = Boolean(getCommonPrompt());
@@ -289,6 +293,10 @@ export async function POST(request: Request) {
 
   if (!isOutputImageSize(size)) {
     return jsonError("Output size must be 1K, 2K, or 4K.");
+  }
+
+  if (aspectRatio !== null && !isValidImageAspectRatio(aspectRatio)) {
+    return jsonError("Aspect ratio must be a valid width:height ratio.");
   }
 
   const model = getModel(requestedModel);
@@ -350,6 +358,7 @@ export async function POST(request: Request) {
       model,
       prompt,
       size,
+      aspectRatio: typeof aspectRatio === "string" ? aspectRatio : undefined,
     });
 
     if (result.error) {
