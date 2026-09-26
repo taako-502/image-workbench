@@ -2,7 +2,7 @@
   "name": "image-workbench",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "yarn@4.7.0",
+  "packageManager": "yarn@4.18.1",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -29,6 +29,6 @@
   },
   "volta": {
     "node": "24.0.1",
-    "yarn": "4.7.0"
+    "yarn": "4.18.1"
   }
 }
